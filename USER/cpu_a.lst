@@ -1,0 +1,562 @@
+
+
+
+ARM Macro Assembler    Page 1 
+
+
+    1 00000000         ;*******************************************************
+                       *************************************************
+    2 00000000         ;                                                uC/CPU
+    3 00000000         ;                                    CPU CONFIGURATION &
+                        PORT LAYER
+    4 00000000         ;
+    5 00000000         ;                          (c) Copyright 2004-2011; Micr
+                       ium, Inc.; Weston, FL
+    6 00000000         ;
+    7 00000000         ;               All rights reserved.  Protected by inter
+                       national copyright laws.
+    8 00000000         ;
+    9 00000000         ;               uC/CPU is provided in source form to reg
+                       istered licensees ONLY.  It is 
+   10 00000000         ;               illegal to distribute this source code t
+                       o any third party unless you receive 
+   11 00000000         ;               written permission by an authorized Micr
+                       ium representative.  Knowledge of 
+   12 00000000         ;               the source code may NOT be used to devel
+                       op a similar product.
+   13 00000000         ;
+   14 00000000         ;               Please help us continue to provide the E
+                       mbedded community with the finest 
+   15 00000000         ;               software available.  Your honesty is gre
+                       atly appreciated.
+   16 00000000         ;
+   17 00000000         ;               You can contact us at www.micrium.com.
+   18 00000000         ;*******************************************************
+                       *************************************************
+   19 00000000         
+   20 00000000         ;*******************************************************
+                       *************************************************
+   21 00000000         ;
+   22 00000000         ;                                            CPU PORT FI
+                       LE
+   23 00000000         ;
+   24 00000000         ;                                            ARM-Cortex-
+                       M3
+   25 00000000         ;                                      RealView Developm
+                       ent Suite
+   26 00000000         ;                            RealView Microcontroller De
+                       velopment Kit (MDK)
+   27 00000000         ;                                       ARM Developer Su
+                       ite (ADS)
+   28 00000000         ;                                            Keil uVisio
+                       n
+   29 00000000         ;
+   30 00000000         ; Filename      : cpu_a.asm
+   31 00000000         ; Version       : V1.29.01.00
+   32 00000000         ; Programmer(s) : BAN
+   33 00000000         ;*******************************************************
+                       *************************************************
+   34 00000000         
+   35 00000000         
+   36 00000000         ;*******************************************************
+                       *************************************************
+   37 00000000         ;                                           PUBLIC FUNCT
+                       IONS
+   38 00000000         ;*******************************************************
+
+
+
+ARM Macro Assembler    Page 2 
+
+
+                       *************************************************
+   39 00000000         
+   40 00000000                 EXPORT           CPU_IntDis
+   41 00000000                 EXPORT           CPU_IntEn
+   42 00000000         
+   43 00000000                 EXPORT           CPU_SR_Save
+   44 00000000                 EXPORT           CPU_SR_Restore
+   45 00000000         
+   46 00000000                 EXPORT           CPU_WaitForInt
+   47 00000000                 EXPORT           CPU_WaitForExcept
+   48 00000000         
+   49 00000000         
+   50 00000000                 EXPORT           CPU_CntLeadZeros
+   51 00000000                 EXPORT           CPU_CntTrailZeros
+   52 00000000                 EXPORT           CPU_RevBits
+   53 00000000         
+   54 00000000         
+   55 00000000         ;*******************************************************
+                       *************************************************
+   56 00000000         ;                                      CODE GENERATION D
+                       IRECTIVES
+   57 00000000         ;*******************************************************
+                       *************************************************
+   58 00000000         
+   59 00000000                 AREA             |.text|, CODE, READONLY, ALIGN=
+2
+   60 00000000                 THUMB
+   61 00000000                 REQUIRE8
+   62 00000000                 PRESERVE8
+   63 00000000         
+   64 00000000         
+   65 00000000         ;$PAGE
+   66 00000000         ;*******************************************************
+                       *************************************************
+   67 00000000         ;                                    DISABLE and ENABLE 
+                       INTERRUPTS
+   68 00000000         ;
+   69 00000000         ; Description : Disable/Enable interrupts.
+   70 00000000         ;
+   71 00000000         ; Prototypes  : void  CPU_IntDis(void);
+   72 00000000         ;               void  CPU_IntEn (void);
+   73 00000000         ;*******************************************************
+                       *************************************************
+   74 00000000         
+   75 00000000         CPU_IntDis
+   76 00000000 B672            CPSID            I
+   77 00000002 4770            BX               LR
+   78 00000004         
+   79 00000004         
+   80 00000004         CPU_IntEn
+   81 00000004 B662            CPSIE            I
+   82 00000006 4770            BX               LR
+   83 00000008         
+   84 00000008         
+   85 00000008         ;*******************************************************
+                       *************************************************
+   86 00000008         ;                                      CRITICAL SECTION 
+                       FUNCTIONS
+   87 00000008         ;
+
+
+
+ARM Macro Assembler    Page 3 
+
+
+   88 00000008         ; Description : Disable/Enable interrupts by preserving 
+                       the state of interrupts.  Generally speaking, the
+   89 00000008         ;               state of the interrupt disable flag is s
+                       tored in the local variable 'cpu_sr' & interrupts
+   90 00000008         ;               are then disabled ('cpu_sr' is allocated
+                        in all functions that need to disable interrupts).
+   91 00000008         ;               The previous interrupt state is restored
+                        by copying 'cpu_sr' into the CPU's status register.
+   92 00000008         ;
+   93 00000008         ; Prototypes  : CPU_SR  CPU_SR_Save   (void);
+   94 00000008         ;               void    CPU_SR_Restore(CPU_SR  cpu_sr);
+   95 00000008         ;
+   96 00000008         ; Note(s)     : (1) These functions are used in general 
+                       like this :
+   97 00000008         ;
+   98 00000008         ;                       void  Task (void  *p_arg)
+   99 00000008         ;                       {
+  100 00000008         ;                           CPU_SR_ALLOC();             
+                               /* Allocate storage for CPU status register */
+  101 00000008         ;                               :
+  102 00000008         ;                               :
+  103 00000008         ;                           CPU_CRITICAL_ENTER();       
+                               /* cpu_sr = CPU_SR_Save();                  */
+  104 00000008         ;                               :
+  105 00000008         ;                               :
+  106 00000008         ;                           CPU_CRITICAL_EXIT();        
+                               /* CPU_SR_Restore(cpu_sr);                  */
+  107 00000008         ;                               :
+  108 00000008         ;                       }
+  109 00000008         ;*******************************************************
+                       *************************************************
+  110 00000008         
+  111 00000008         CPU_SR_Save
+  112 00000008 F3EF 8010       MRS              R0, PRIMASK ; Set prio int mask
+                                                             to mask all (excep
+                                                            t faults)
+  113 0000000C B672            CPSID            I
+  114 0000000E 4770            BX               LR
+  115 00000010         
+  116 00000010         
+  117 00000010         CPU_SR_Restore                       ; See Note #2.
+  118 00000010 F380 8810       MSR              PRIMASK, R0
+  119 00000014 4770            BX               LR
+  120 00000016         
+  121 00000016         
+  122 00000016         ;$PAGE
+  123 00000016         ;*******************************************************
+                       *************************************************
+  124 00000016         ;                                         WAIT FOR INTER
+                       RUPT
+  125 00000016         ;
+  126 00000016         ; Description : Enters sleep state, which will be exited
+                        when an interrupt is received.
+  127 00000016         ;
+  128 00000016         ; Prototypes  : void  CPU_WaitForInt (void)
+  129 00000016         ;
+  130 00000016         ; Argument(s) : none.
+  131 00000016         ;*******************************************************
+                       *************************************************
+
+
+
+ARM Macro Assembler    Page 4 
+
+
+  132 00000016         
+  133 00000016         CPU_WaitForInt
+  134 00000016 BF30            WFI                          ; Wait for interrup
+                                                            t
+  135 00000018 4770            BX               LR
+  136 0000001A         
+  137 0000001A         
+  138 0000001A         ;*******************************************************
+                       *************************************************
+  139 0000001A         ;                                         WAIT FOR EXCEP
+                       TION
+  140 0000001A         ;
+  141 0000001A         ; Description : Enters sleep state, which will be exited
+                        when an exception is received.
+  142 0000001A         ;
+  143 0000001A         ; Prototypes  : void  CPU_WaitForExcept (void)
+  144 0000001A         ;
+  145 0000001A         ; Argument(s) : none.
+  146 0000001A         ;*******************************************************
+                       *************************************************
+  147 0000001A         
+  148 0000001A         CPU_WaitForExcept
+  149 0000001A BF20            WFE                          ; Wait for exceptio
+                                                            n
+  150 0000001C 4770            BX               LR
+  151 0000001E         
+  152 0000001E         
+  153 0000001E         ;$PAGE
+  154 0000001E         ;*******************************************************
+                       *************************************************
+  155 0000001E         ;                                         CPU_CntLeadZer
+                       os()
+  156 0000001E         ;                                        COUNT LEADING Z
+                       EROS
+  157 0000001E         ;
+  158 0000001E         ; Description : Counts the number of contiguous, most-si
+                       gnificant, leading zero bits before the 
+  159 0000001E         ;                   first binary one bit in a data value
+                       .
+  160 0000001E         ;
+  161 0000001E         ; Prototype   : CPU_DATA  CPU_CntLeadZeros(CPU_DATA  val
+                       );
+  162 0000001E         ;
+  163 0000001E         ; Argument(s) : val         Data value to count leading 
+                       zero bits.
+  164 0000001E         ;
+  165 0000001E         ; Return(s)   : Number of contiguous, most-significant, 
+                       leading zero bits in 'val'.
+  166 0000001E         ;
+  167 0000001E         ; Caller(s)   : Application.
+  168 0000001E         ;
+  169 0000001E         ;               This function is an INTERNAL CPU module 
+                       function but MAY be called by application 
+  170 0000001E         ;               function(s).
+  171 0000001E         ;
+  172 0000001E         ; Note(s)     : (1) (a) Supports 32-bit data value size 
+                       as configured by 'CPU_DATA' (see 'cpu.h  
+  173 0000001E         ;                       CPU WORD CONFIGURATION  Note #1'
+                       ).
+
+
+
+ARM Macro Assembler    Page 5 
+
+
+  174 0000001E         ;
+  175 0000001E         ;                   (b) For 32-bit values :
+  176 0000001E         ;
+  177 0000001E         ;                             b31  b30  b29  ...  b04  b
+                       03  b02  b01  b00    # Leading Zeros
+  178 0000001E         ;                             ---  ---  ---       ---  -
+                       --  ---  ---  ---    ---------------
+  179 0000001E         ;                              1    x    x         x    
+                       x    x    x    x            0
+  180 0000001E         ;                              0    1    x         x    
+                       x    x    x    x            1
+  181 0000001E         ;                              0    0    1         x    
+                       x    x    x    x            2
+  182 0000001E         ;                              :    :    :         :    
+                       :    :    :    :            :
+  183 0000001E         ;                              :    :    :         :    
+                       :    :    :    :            :
+  184 0000001E         ;                              0    0    0         1    
+                       x    x    x    x           27
+  185 0000001E         ;                              0    0    0         0    
+                       1    x    x    x           28
+  186 0000001E         ;                              0    0    0         0    
+                       0    1    x    x           29
+  187 0000001E         ;                              0    0    0         0    
+                       0    0    1    x           30
+  188 0000001E         ;                              0    0    0         0    
+                       0    0    0    1           31
+  189 0000001E         ;                              0    0    0         0    
+                       0    0    0    0           32
+  190 0000001E         ;
+  191 0000001E         ;
+  192 0000001E         ;               (2) MUST be defined in 'cpu_a.asm' (or '
+                       cpu_c.c') if CPU_CFG_LEAD_ZEROS_ASM_PRESENT is 
+  193 0000001E         ;                   #define'd in 'cpu_cfg.h' or 'cpu.h'.
+                       
+  194 0000001E         ;*******************************************************
+                       *************************************************
+  195 0000001E         
+  196 0000001E         CPU_CntLeadZeros
+  197 0000001E FAB0 F080       CLZ              R0, R0      ; Count leading zer
+                                                            os
+  198 00000022 4770            BX               LR
+  199 00000024         
+  200 00000024         
+  201 00000024         ;$PAGE
+  202 00000024         ;*******************************************************
+                       *************************************************
+  203 00000024         ;                                         CPU_CntTrailZe
+                       ros()
+  204 00000024         ;                                        COUNT TRAILING 
+                       ZEROS
+  205 00000024         ;
+  206 00000024         ; Description : Counts the number of contiguous, least-s
+                       ignificant, trailing zero bits before the 
+  207 00000024         ;                   first binary one bit in a data value
+                       .
+  208 00000024         ;
+  209 00000024         ; Prototype   : CPU_DATA  CPU_CntTrailZeros(CPU_DATA  va
+                       l);
+
+
+
+ARM Macro Assembler    Page 6 
+
+
+  210 00000024         ;
+  211 00000024         ; Argument(s) : val         Data value to count trailing
+                        zero bits.
+  212 00000024         ;
+  213 00000024         ; Return(s)   : Number of contiguous, least-significant,
+                        trailing zero bits in 'val'.
+  214 00000024         ;
+  215 00000024         ; Caller(s)   : Application.
+  216 00000024         ;
+  217 00000024         ;               This function is an INTERNAL CPU module 
+                       function but MAY be called by application 
+  218 00000024         ;               function(s).
+  219 00000024         ;
+  220 00000024         ; Note(s)     : (1) (a) Supports 32-bit data value size 
+                       as configured by 'CPU_DATA' (see 'cpu.h  
+  221 00000024         ;                       CPU WORD CONFIGURATION  Note #1'
+                       ).
+  222 00000024         ;
+  223 00000024         ;                   (b) For 32-bit values :
+  224 00000024         ;
+  225 00000024         ;                             b31  b30  b29  b28  b27  .
+                       ..  b02  b01  b00    # Trailing Zeros
+  226 00000024         ;                             ---  ---  ---  ---  ---   
+                           ---  ---  ---    ----------------
+  227 00000024         ;                              x    x    x    x    x    
+                            x    x    1            0
+  228 00000024         ;                              x    x    x    x    x    
+                            x    1    0            1
+  229 00000024         ;                              x    x    x    x    x    
+                            1    0    0            2
+  230 00000024         ;                              :    :    :    :    :    
+                            :    :    :            :
+  231 00000024         ;                              :    :    :    :    :    
+                            :    :    :            :
+  232 00000024         ;                              x    x    x    x    1    
+                            0    0    0           27
+  233 00000024         ;                              x    x    x    1    0    
+                            0    0    0           28
+  234 00000024         ;                              x    x    1    0    0    
+                            0    0    0           29
+  235 00000024         ;                              x    1    0    0    0    
+                            0    0    0           30
+  236 00000024         ;                              1    0    0    0    0    
+                            0    0    0           31
+  237 00000024         ;                              0    0    0    0    0    
+                            0    0    0           32
+  238 00000024         ;
+  239 00000024         ;
+  240 00000024         ;               (2) MUST be defined in 'cpu_a.asm' (or '
+                       cpu_c.c') if CPU_CFG_TRAIL_ZEROS_ASM_PRESENT is 
+  241 00000024         ;                   #define'd in 'cpu_cfg.h' or 'cpu.h'.
+                       
+  242 00000024         ;*******************************************************
+                       *************************************************
+  243 00000024         
+  244 00000024         CPU_CntTrailZeros
+  245 00000024 FA90 F0A0       RBIT             R0, R0      ; Reverse bits
+  246 00000028 FAB0 F080       CLZ              R0, R0      ; Count trailing ze
+                                                            ros
+
+
+
+ARM Macro Assembler    Page 7 
+
+
+  247 0000002C 4770            BX               LR
+  248 0000002E         
+  249 0000002E         
+  250 0000002E         ;$PAGE
+  251 0000002E         ;*******************************************************
+                       *************************************************
+  252 0000002E         ;                                            CPU_RevBits
+                       ()
+  253 0000002E         ;                                            REVERSE BIT
+                       S
+  254 0000002E         ;
+  255 0000002E         ; Description : Reverses the bits in a data value.
+  256 0000002E         ;
+  257 0000002E         ; Prototypes  : CPU_DATA  CPU_RevBits(CPU_DATA  val);
+  258 0000002E         ;
+  259 0000002E         ; Argument(s) : val         Data value to reverse bits.
+  260 0000002E         ;
+  261 0000002E         ; Return(s)   : Value with all bits in 'val' reversed (s
+                       ee Note #1).
+  262 0000002E         ;
+  263 0000002E         ; Caller(s)   : Application.
+  264 0000002E         ;
+  265 0000002E         ;               This function is an INTERNAL CPU module 
+                       function but MAY be called by application function(s).
+  266 0000002E         ;
+  267 0000002E         ; Note(s)     : (1) The final, reversed data value for '
+                       val' is such that :
+  268 0000002E         ;
+  269 0000002E         ;                       'val's final bit  0       =  'va
+                       l's original bit  N
+  270 0000002E         ;                       'val's final bit  1       =  'va
+                       l's original bit (N - 1)
+  271 0000002E         ;                       'val's final bit  2       =  'va
+                       l's original bit (N - 2)
+  272 0000002E         ;
+  273 0000002E         ;                               ...                     
+                             ...
+  274 0000002E         ;
+  275 0000002E         ;                       'val's final bit (N - 2)  =  'va
+                       l's original bit  2
+  276 0000002E         ;                       'val's final bit (N - 1)  =  'va
+                       l's original bit  1
+  277 0000002E         ;                       'val's final bit  N       =  'va
+                       l's original bit  0
+  278 0000002E         ;*******************************************************
+                       *************************************************
+  279 0000002E         
+  280 0000002E         CPU_RevBits
+  281 0000002E FA90 F0A0       RBIT             R0, R0      ; Reverse bits
+  282 00000032 4770            BX               LR
+  283 00000034         
+  284 00000034         
+  285 00000034         ;$PAGE
+  286 00000034         ;*******************************************************
+                       *************************************************
+  287 00000034         ;                                     CPU ASSEMBLY PORT 
+                       FILE END
+  288 00000034         ;*******************************************************
+                       *************************************************
+
+
+
+ARM Macro Assembler    Page 8 
+
+
+  289 00000034         
+  290 00000034                 END
+Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M3 --apcs=interw
+ork --depend=..\obj\cpu_a.d -o..\obj\cpu_a.o -IF:\git\curriculum-design\USER\RT
+E -IG:\Keil\STM32F1xx_DFP\1.0.5\Device\Include -IG:\ARM\CMSIS\Include --predefi
+ne="__UVISION_VERSION SETA 514" --predefine="STM32F10X_HD SETA 1" --list=.\cpu_
+a.lst ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+Relocatable symbols
+
+.text 00000000
+
+Symbol: .text
+   Definitions
+      At line 59 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+   Uses
+      None
+Comment: .text unused
+CPU_CntLeadZeros 0000001E
+
+Symbol: CPU_CntLeadZeros
+   Definitions
+      At line 196 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+   Uses
+      At line 50 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+Comment: CPU_CntLeadZeros used once
+CPU_CntTrailZeros 00000024
+
+Symbol: CPU_CntTrailZeros
+   Definitions
+      At line 244 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+   Uses
+      At line 51 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+Comment: CPU_CntTrailZeros used once
+CPU_IntDis 00000000
+
+Symbol: CPU_IntDis
+   Definitions
+      At line 75 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+   Uses
+      At line 40 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+Comment: CPU_IntDis used once
+CPU_IntEn 00000004
+
+Symbol: CPU_IntEn
+   Definitions
+      At line 80 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+   Uses
+      At line 41 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+Comment: CPU_IntEn used once
+CPU_RevBits 0000002E
+
+Symbol: CPU_RevBits
+   Definitions
+      At line 280 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+   Uses
+      At line 52 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+Comment: CPU_RevBits used once
+CPU_SR_Restore 00000010
+
+Symbol: CPU_SR_Restore
+   Definitions
+      At line 117 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+   Uses
+      At line 44 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+Comment: CPU_SR_Restore used once
+CPU_SR_Save 00000008
+
+Symbol: CPU_SR_Save
+
+
+
+ARM Macro Assembler    Page 2 Alphabetic symbol ordering
+Relocatable symbols
+
+   Definitions
+      At line 111 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+   Uses
+      At line 43 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+Comment: CPU_SR_Save used once
+CPU_WaitForExcept 0000001A
+
+Symbol: CPU_WaitForExcept
+   Definitions
+      At line 148 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+   Uses
+      At line 47 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+Comment: CPU_WaitForExcept used once
+CPU_WaitForInt 00000016
+
+Symbol: CPU_WaitForInt
+   Definitions
+      At line 133 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+   Uses
+      At line 46 in file ..\UCOSIII\uC-CPU\ARM-Cortex-M3\RealView\cpu_a.asm
+Comment: CPU_WaitForInt used once
+10 symbols
+342 symbols in table
